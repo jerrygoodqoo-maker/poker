@@ -41,15 +41,21 @@ textarea{flex:1;resize:none;height:44px;max-height:120px;background:var(--panel)
 /* 設定彈窗 */
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.68);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
 #modal.open{display:flex}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:420px;width:100%;padding:18px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:440px;width:100%;max-height:90dvh;overflow-y:auto;padding:18px;box-shadow:0 12px 32px rgba(0,0,0,.4)}
 .card h3{margin:0 0 8px;color:var(--gold);font-size:17px}
-.card p{margin:0 0 12px;font-size:13px;color:var(--mute);line-height:1.5}
+.card p{margin:0 0 10px;font-size:13px;color:var(--mute);line-height:1.5}
 .card label{display:block;font-size:12px;color:var(--mute);margin:10px 0 4px}
-.card input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px}
+.card input,.card select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:15px}
 .card a{color:var(--gold)}
-.detect-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.detect-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap}
 .detect-btn{background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer}
 #detect-msg{font-size:12px;color:var(--mute)}
+.model-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;max-height:110px;overflow-y:auto}
+.m-chip{font-size:11px;padding:4px 9px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);cursor:pointer}
+.m-chip:hover,.m-chip.sel{border-color:var(--gold);color:var(--gold)}
+.saved-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mute);cursor:pointer}
+.pill.on{border-color:var(--gold);color:var(--gold)}
 .modal-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .modal-btns button{padding:8px 14px;border-radius:10px;font-size:14px;cursor:pointer;border:1px solid var(--line);background:transparent;color:var(--text)}
 .modal-btns button.primary{background:var(--gold);color:#16130a;border:0;font-weight:700}
@@ -72,12 +78,12 @@ textarea{flex:1;resize:none;height:44px;max-height:120px;background:var(--panel)
     </svg>
     <div>
       <b>小撲</b>
-      <small>6-Max 100bb · GTO 底子 + 剝削手感</small>
+      <small id="engine-status">6-Max 100bb · GTO 底子 + 剝削手感</small>
     </div>
   </div>
   <div class="actions">
     <button type="button" class="icon-btn" id="clear-btn" title="清空目前對話">新牌局</button>
-    <button type="button" class="icon-btn" id="cfg-btn">⚙️ API</button>
+    <button type="button" class="icon-btn" id="cfg-btn">⚙️ 模型</button>
   </div>
 </header>
 
@@ -89,28 +95,38 @@ textarea{flex:1;resize:none;height:44px;max-height:120px;background:var(--panel)
   <button id="send" type="submit">送出</button>
 </form>
 
-<!-- API 設定彈窗 -->
+<!-- 多模型設定彈窗 -->
 <div id="modal">
   <div class="card">
-    <h3>⚙️ 連線設定（支援自動備援切換）</h3>
-    <p>金鑰僅儲存在本機瀏覽器（localStorage）。若首選模型遇到尖峰塞車（503），系統會自動切換備援模型連線。可至 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a> 取得 Key。</p>
-    <label for="api-key">Gemini API Key</label>
-    <input type="password" id="api-key" placeholder="貼上 AIzaSy 開頭的金鑰…">
-    <label for="api-model">首選模型（塞車時會自動切換其他可用模型）</label>
-    <input type="text" id="api-model" list="model-list" placeholder="gemini-3.8-flash-lite">
-    <datalist id="model-list">
-      <option value="gemini-3.8-flash-lite">gemini-3.8-flash-lite（低延遲、不易塞車）</option>
-      <option value="gemini-flash-latest">gemini-flash-latest（官方穩定版別名）</option>
-      <option value="gemini-3.8-pro">gemini-3.8-pro（獨立算力池、深度推理）</option>
-      <option value="gemini-3.8-flash">gemini-3.8-flash（標準版）</option>
-    </datalist>
+    <h3>⚙️ AI 引擎與自動備援設定</h3>
+    <p>系統會自動向伺服器查詢此 Key <b>真實支援的模型清單</b>；若主力模型遇到尖峰塞車（503），會自動切換同家或他家備援模型。</p>
+
+    <label for="provider-select">選擇 AI 供應商（目前主力）</label>
+    <select id="provider-select">
+      <option value="gemini">Google Gemini（自動偵測可用 Gemini + Gemma 3）</option>
+      <option value="groq">Groq（極速免費推論、不塞車，強烈推薦備援）</option>
+      <option value="openrouter">OpenRouter（一組 Key 通用多款免費/付費模型）</option>
+      <option value="deepseek">DeepSeek（深度求索官方 API）</option>
+      <option value="openai">OpenAI（GPT 系列）</option>
+    </select>
+
+    <label for="api-key">API Key（<a id="key-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">點此申請此供應商金鑰 ↗</a>）</label>
+    <input type="password" id="api-key" placeholder="貼上 API Key…">
+
+    <label for="api-model">首選模型名稱（可點下方「偵測」一鍵挑選）</label>
+    <input type="text" id="api-model" placeholder="留空或自動偵測">
+
     <div class="detect-row">
       <button type="button" class="detect-btn" id="detect-btn">🔍 偵測此 Key 可用模型</button>
       <span id="detect-msg"></span>
     </div>
+    <div class="model-chips" id="model-chips"></div>
+
+    <div class="saved-pills" id="saved-pills"></div>
+
     <div class="modal-btns">
       <button type="button" id="cancel-cfg">取消</button>
-      <button type="button" class="primary" id="save-cfg">儲存設定</button>
+      <button type="button" class="primary" id="save-cfg">儲存並套用</button>
     </div>
   </div>
 </div>
@@ -156,20 +172,103 @@ const STARTER_CHIPS = [
   "給我出一題練習"
 ];
 
-const KEY_STORAGE = 'xiaopu_gemini_api_key';
-const MODEL_STORAGE = 'xiaopu_gemini_model';
-const DEFAULT_MODEL = 'gemini-3.8-flash-lite';
-const FALLBACK_MODELS = [
-  'gemini-3.8-flash-lite',
-  'gemini-flash-latest',
-  'gemini-3.8-pro',
-  'gemini-3.8-flash'
-];
+const PROVIDERS = {
+  gemini: {
+    label: 'Gemini',
+    type: 'gemini',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    placeholder: '貼上 AIzaSy 開頭的 Gemini Key…',
+    defaultModel: 'gemini-flash-latest',
+    presets: ['gemini-flash-latest', 'gemini-3.8-flash', 'gemma-3-27b-it']
+  },
+  groq: {
+    label: 'Groq',
+    type: 'openai',
+    chatUrl: 'https://api.groq.com/openai/v1/chat/completions',
+    modelsUrl: 'https://api.groq.com/openai/v1/models',
+    keyUrl: 'https://console.groq.com/keys',
+    placeholder: '貼上 gsk_ 開頭的 Groq Key…',
+    defaultModel: 'llama-3.3-70b-versatile',
+    presets: ['llama-3.3-70b-versatile', 'qwen/qwen3-32b', 'llama-3.1-8b-instant']
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    type: 'openai',
+    chatUrl: 'https://openrouter.ai/api/v1/chat/completions',
+    modelsUrl: 'https://openrouter.ai/api/v1/models',
+    keyUrl: 'https://openrouter.ai/keys',
+    placeholder: '貼上 sk-or- 開頭的 OpenRouter Key…',
+    defaultModel: 'openrouter/auto',
+    presets: ['openrouter/auto', 'meta-llama/llama-3.3-70b-instruct:free', 'qwen/qwen-2.5-72b-instruct:free']
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    type: 'openai',
+    chatUrl: 'https://api.deepseek.com/chat/completions',
+    modelsUrl: 'https://api.deepseek.com/models',
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+    placeholder: '貼上 sk- 開頭的 DeepSeek Key…',
+    defaultModel: 'deepseek-chat',
+    presets: ['deepseek-chat', 'deepseek-reasoner']
+  },
+  openai: {
+    label: 'OpenAI',
+    type: 'openai',
+    chatUrl: 'https://api.openai.com/v1/chat/completions',
+    modelsUrl: 'https://api.openai.com/v1/models',
+    keyUrl: 'https://platform.openai.com/api-keys',
+    placeholder: '貼上 sk- 開頭的 OpenAI Key…',
+    defaultModel: 'gpt-4o-mini',
+    presets: ['gpt-4o-mini', 'gpt-4o', 'o4-mini']
+  }
+};
 
-// 自動清理舊版已停用或目前高負載預設快取
-const savedModel = localStorage.getItem(MODEL_STORAGE);
-if (!savedModel || savedModel.startsWith('gemini-2.5') || savedModel === 'gemini-3.8-flash') {
-  localStorage.setItem(MODEL_STORAGE, DEFAULT_MODEL);
+const STORE_PROVIDER = 'xiaopu_active_provider';
+const STORE_KEYS = 'xiaopu_provider_keys';
+const STORE_MODELS = 'xiaopu_provider_models';
+const liveModelCache = {}; // 本次工作階段動態偵測到的真實模型快取
+
+function cleanKey(k) {
+  return (k || '').replace(/[^\x21-\x7E]/g, '');
+}
+
+function getKeys() {
+  try {
+    const obj = JSON.parse(localStorage.getItem(STORE_KEYS) || '{}');
+    const legacy = cleanKey(localStorage.getItem('xiaopu_gemini_api_key'));
+    if (legacy && !obj.gemini) {
+      obj.gemini = legacy;
+      localStorage.setItem(STORE_KEYS, JSON.stringify(obj));
+    }
+    return obj;
+  } catch { return {}; }
+}
+
+function setKey(provider, key) {
+  const obj = getKeys();
+  const cleaned = cleanKey(key);
+  if (cleaned) obj[provider] = cleaned;
+  else delete obj[provider];
+  localStorage.setItem(STORE_KEYS, JSON.stringify(obj));
+  delete liveModelCache[provider];
+}
+
+function getModels() {
+  try { return JSON.parse(localStorage.getItem(STORE_MODELS) || '{}'); }
+  catch { return {}; }
+}
+
+function setModel(provider, model) {
+  const obj = getModels();
+  const m = (model || '').trim().replace(/^models\//, '');
+  if (m) obj[provider] = m;
+  else delete obj[provider];
+  localStorage.setItem(STORE_MODELS, JSON.stringify(obj));
+}
+
+function getActiveProvider() {
+  const p = localStorage.getItem(STORE_PROVIDER);
+  return PROVIDERS[p] ? p : 'gemini';
 }
 
 const log = document.getElementById('log');
@@ -180,17 +279,21 @@ const chipBox = document.getElementById('chips');
 const modal = document.getElementById('modal');
 const cfgBtn = document.getElementById('cfg-btn');
 const clearBtn = document.getElementById('clear-btn');
+const engineStatus = document.getElementById('engine-status');
+const providerSelect = document.getElementById('provider-select');
 const apiKeyInput = document.getElementById('api-key');
 const apiModelInput = document.getElementById('api-model');
-const modelList = document.getElementById('model-list');
+const modelChips = document.getElementById('model-chips');
+const keyLink = document.getElementById('key-link');
 const detectBtn = document.getElementById('detect-btn');
 const detectMsg = document.getElementById('detect-msg');
+const savedPills = document.getElementById('saved-pills');
 
 let hist = [];
 let busy = false;
 
 function esc(s) {
-  return s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
 function inl(s) {
@@ -223,16 +326,76 @@ function add(role, text) {
   return d;
 }
 
-function updateKeyBadge() {
-  const hasKey = !!localStorage.getItem(KEY_STORAGE);
-  cfgBtn.textContent = hasKey ? '⚙️ 已連線' : '⚙️ 設定 Key';
-  cfgBtn.classList.toggle('active', !hasKey);
+function updateHeaderStatus() {
+  const keys = getKeys();
+  const active = getActiveProvider();
+  const models = getModels();
+  const hasAny = Object.keys(keys).length > 0;
+  const activeModel = models[active] || PROVIDERS[active].defaultModel;
+
+  if (!hasAny) {
+    cfgBtn.textContent = '⚙️ 設定 Key';
+    cfgBtn.classList.add('active');
+    engineStatus.textContent = '尚未設定 API Key · 點右上角連線';
+  } else {
+    cfgBtn.textContent = `⚙️ ${PROVIDERS[active].label}`;
+    cfgBtn.classList.remove('active');
+    engineStatus.textContent = `引擎：${PROVIDERS[active].label} (${activeModel})`;
+  }
+}
+
+function renderModelChips(list) {
+  modelChips.innerHTML = '';
+  const current = apiModelInput.value.trim();
+  list.forEach(id => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'm-chip' + (id === current ? ' sel' : '');
+    btn.textContent = id;
+    btn.onclick = () => {
+      apiModelInput.value = id;
+      renderModelChips(list);
+    };
+    modelChips.appendChild(btn);
+  });
+}
+
+function renderSavedPills() {
+  const keys = getKeys();
+  savedPills.innerHTML = '';
+  Object.entries(PROVIDERS).forEach(([id, cfg]) => {
+    const span = document.createElement('span');
+    const ok = !!keys[id];
+    span.className = 'pill' + (ok ? ' on' : '');
+    span.textContent = ok ? `✓ ${cfg.label} 已存` : `${cfg.label} 未設`;
+    span.onclick = () => {
+      providerSelect.value = id;
+      syncModalFields(id);
+    };
+    savedPills.appendChild(span);
+  });
+}
+
+function syncModalFields(providerId) {
+  const cfg = PROVIDERS[providerId];
+  const keys = getKeys();
+  const models = getModels();
+
+  apiKeyInput.value = keys[providerId] || '';
+  apiKeyInput.placeholder = cfg.placeholder;
+  apiModelInput.value = models[providerId] || cfg.defaultModel;
+  keyLink.href = cfg.keyUrl;
+  detectMsg.textContent = '';
+
+  const list = liveModelCache[providerId] || cfg.presets;
+  renderModelChips(list);
 }
 
 function openModal() {
-  apiKeyInput.value = localStorage.getItem(KEY_STORAGE) || '';
-  apiModelInput.value = localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL;
-  detectMsg.textContent = '';
+  const active = getActiveProvider();
+  providerSelect.value = active;
+  syncModalFields(active);
+  renderSavedPills();
   modal.classList.add('open');
 }
 
@@ -244,122 +407,223 @@ function initWelcome() {
   log.innerHTML = '';
   hist = [];
   chipBox.style.display = 'flex';
-  add('bot', '坐。\n我是**小撲**。別管我戴墨鏡，你的牌我不看，我只看你的決策。\n\n我會帶你把打法磨成接近 GTO：**混合頻率、多種尺度下注、用對手行動線決定 Hero Call**，再教你什麼時候該偏離、怎麼剝削。\n\n- 丟我**位置＋手牌＋行動線＋下注額**，我給結論再拆理由\n- 或點下面的題目開始');
+  add('bot', '坐。\n我是**小撲**。別管我戴墨鏡，你的牌我不看，我只看你的決策。\n\n我會帶你把打法磨成接近 GTO：**混合頻率、多種尺度下注、用對手行動線決定 Hero Call**，再教你什麼時候該偏離、怎麼剝削。\n\n- 丟我**位置＋手牌＋行動線＋下注額**，我給結論再拆理由\n- 若晚間尖峰遇到塞車，系統會自動偵測並切換同組 Key 下的可用備援模型（含 Gemma 3）');
 }
 
-// 向 Google 查詢目前這組 Key 實際支援的純文字對話模型
-async function fetchAvailableModels(apiKey) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`);
-  const data = await res.json();
-  if (!res.ok) throw { status: res.status, message: data?.error?.message || '無法取得模型列表' };
+async function fetchModelsForProvider(providerId, apiKey) {
+  const cfg = PROVIDERS[providerId];
+  const key = cleanKey(apiKey);
+  if (!key) throw new Error('請先貼上 API Key');
 
-  const valid = (data.models || [])
-    .filter(m =>
-      Array.isArray(m.supportedGenerationMethods) &&
-      m.supportedGenerationMethods.includes('generateContent') &&
-      m.name.includes('gemini') &&
-      !/embedding|imagen|veo|tts|audio|aqa|bisect|robotics|computer-use/i.test(m.name)
-    )
-    .map(m => m.name.replace(/^models\//, ''));
+  if (cfg.type === 'gemini') {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`, {
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer'
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, message: data?.error?.message || `HTTP ${res.status}` };
 
-  // 優先排序：flash-lite -> flash -> pro
-  valid.sort((a, b) => {
-    const score = s => (s.includes('flash-lite') ? 0 : s.includes('flash') ? 1 : s.includes('pro') ? 2 : 3);
-    return score(a) - score(b);
-  });
-  return valid;
-}
+    const list = (data.models || [])
+      .filter(m =>
+        Array.isArray(m.supportedGenerationMethods) &&
+        m.supportedGenerationMethods.includes('generateContent') &&
+        (m.name.includes('gemini') || m.name.includes('gemma-3')) &&
+        !/embedding|imagen|veo|tts|audio|aqa|bisect|robotics|computer-use|deep-research|nano-banana|exp/i.test(m.name)
+      )
+      .map(m => m.name.replace(/^models\//, ''));
 
-async function callModel(apiKey, model, recent) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: KB }] },
-      contents: recent,
-      generationConfig: { temperature: 0.7 }
-    })
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    throw { status: res.status, message: data?.error?.message || 'API Error' };
+    // 排序：Flash-Lite -> Flash -> Pro -> Gemma-3-27b -> 其他 Gemma-3
+    list.sort((a, b) => {
+      const score = s => {
+        if (s.includes('flash-lite')) return 0;
+        if (s.includes('flash')) return 1;
+        if (s.includes('pro')) return 2;
+        if (s.includes('gemma-3-27b')) return 3;
+        if (s.includes('gemma-3')) return 4;
+        return 5;
+      };
+      return score(a) - score(b);
+    });
+    liveModelCache[providerId] = list;
+    return list;
+  } else {
+    const res = await fetch(cfg.modelsUrl, {
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      headers: { 'Authorization': `Bearer ${key}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, message: data?.error?.message || `HTTP ${res.status}` };
+    let list = (data.data || []).map(m => m.id).filter(Boolean);
+    if (providerId === 'groq') {
+      list = list.filter(id => !/whisper|guard|tts|audio|vision|safeguard/i.test(id));
+    } else if (providerId === 'openrouter') {
+      const freeFirst = list.filter(id => id.endsWith(':free'));
+      const others = list.filter(id => !id.endsWith(':free'));
+      list = [...freeFirst, ...others].slice(0, 40);
+    }
+    liveModelCache[providerId] = list;
+    return list;
   }
-  const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!reply) throw { status: 500, message: 'Empty response' };
-  return reply;
+}
+
+async function callSingleModel(providerId, apiKey, model, recent) {
+  const cfg = PROVIDERS[providerId];
+  const key = cleanKey(apiKey);
+
+  if (cfg.type === 'gemini') {
+    const isGemma = model.toLowerCase().includes('gemma');
+    const contents = recent.map((m, idx) => {
+      let text = m.content;
+      // Gemma 系列不支援 systemInstruction，自動將人設與知識庫併入首則提問
+      if (isGemma && idx === 0 && m.role === 'user') {
+        text = KB + '\n\n【學員提問】\n' + text;
+      }
+      return {
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text }]
+      };
+    });
+
+    const payload = {
+      contents,
+      generationConfig: { temperature: 0.7 }
+    };
+    if (!isGemma) {
+      payload.systemInstruction = { parts: [{ text: KB }] };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, message: data?.error?.message || `HTTP ${res.status}` };
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw { status: 500, message: '模型未回傳文字' };
+    return text;
+  } else {
+    const messages = [{ role: 'system', content: KB }, ...recent];
+    const res = await fetch(cfg.chatUrl, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.7
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, message: data?.error?.message || `HTTP ${res.status}` };
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) throw { status: 500, message: '模型未回傳文字' };
+    return text;
+  }
 }
 
 async function ask(text) {
   if (busy || !text.trim()) return;
 
-  const apiKey = (localStorage.getItem(KEY_STORAGE) || '').trim();
-  if (!apiKey) {
+  const keys = getKeys();
+  if (Object.keys(keys).length === 0) {
     openModal();
     return;
   }
 
-  const preferred = (localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL).trim().replace(/^models\//, '');
   busy = true;
   send.disabled = true;
   chipBox.style.display = 'none';
 
   add('me', text);
-  hist.push({ role: 'user', parts: [{ text }] });
+  hist.push({ role: 'user', content: text });
   const bub = add('bot', '…（壓低帽簷，盯著籌碼）');
 
   try {
     let recent = hist.slice(-12);
     if (recent[0].role !== 'user') recent = recent.slice(1);
 
-    const candidates = [...new Set([preferred, ...FALLBACK_MODELS])];
-    const tried = new Set();
+    const primary = getActiveProvider();
+    const savedModels = getModels();
+    const providerOrder = [primary, ...Object.keys(keys)].filter((v, i, a) => keys[v] && a.indexOf(v) === i);
+
     let reply = null;
     let lastErr = null;
 
-    // 1. 先依序嘗試預設與備援模型
-    for (const m of candidates) {
-      tried.add(m);
-      try {
-        reply = await callModel(apiKey, m, recent);
-        if (m !== preferred) localStorage.setItem(MODEL_STORAGE, m);
-        break;
-      } catch (e) {
-        lastErr = e;
-        if (e.status === 400 || e.status === 403) throw e; // Key 錯誤直接中止
-        bub.innerHTML = md('…（這桌塞車，換個位置連線中…）');
-      }
-    }
+    for (const pid of providerOrder) {
+      const cfg = PROVIDERS[pid];
+      const key = keys[pid];
+      const chosenModel = (savedModels[pid] || '').replace(/^models\//, '');
 
-    // 2. 若預設清單全數塞車或更名，動態向 Google 撈取可用模型清單並重試
-    if (!reply) {
-      const liveModels = await fetchAvailableModels(apiKey);
-      for (const m of liveModels) {
-        if (tried.has(m)) continue;
-        tried.add(m);
+      // 先動態向伺服器確認真實可用模型清單，避免試到不存在的模型名稱
+      let realModels = liveModelCache[pid];
+      if (!realModels) {
         try {
-          reply = await callModel(apiKey, m, recent);
-          localStorage.setItem(MODEL_STORAGE, m);
+          realModels = await fetchModelsForProvider(pid, key);
+        } catch (e) {
+          lastErr = e;
+          if (e.status === 400 || e.status === 401 || e.status === 403) continue;
+          realModels = cfg.presets;
+        }
+      }
+
+      // 若使用者有指定且存在於真實清單中，放第一位；否則依優先序跑真實清單
+      const candidateModels = chosenModel && realModels.includes(chosenModel)
+        ? [chosenModel, ...realModels.filter(m => m !== chosenModel)]
+        : realModels;
+
+      for (const m of candidateModels) {
+        try {
+          reply = await callSingleModel(pid, key, m, recent);
+          if (pid !== primary || m !== chosenModel) {
+            localStorage.setItem(STORE_PROVIDER, pid);
+            setModel(pid, m);
+            updateHeaderStatus();
+          }
           break;
         } catch (e) {
           lastErr = e;
-          if (e.status === 400 || e.status === 403) throw e;
+          if (e.status === 401 || e.status === 403) break;
+          if (e.status === 503 || e.status === 429) {
+            bub.innerHTML = md(`…（\`${m}\` 尖峰塞車，自動切換下一個可用模型…）`);
+          }
         }
       }
+      if (reply) break;
     }
 
-    if (!reply) throw lastErr || { status: 503, message: '所有模型目前皆在高負載中' };
+    if (!reply) throw lastErr || new Error('所有已設定模型目前皆在尖峰負載中');
 
     bub.innerHTML = md(reply);
-    hist.push({ role: 'model', parts: [{ text: reply }] });
+    hist.push({ role: 'assistant', content: reply });
   } catch (e) {
     hist.pop();
-    if (e.status === 400 || e.status === 403) {
-      bub.innerHTML = md('**籌碼驗證沒過。** API Key 無效或權限不足（' + esc(e.message || '') + '），點右上角「⚙️」檢查金鑰。');
-    } else if (e.status === 429) {
-      bub.innerHTML = md('慢點，牌局不急。免費額度每分鐘請求達上限，等個幾秒再問。');
+    const msg = String(e?.message || e || '網路異常');
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      bub.innerHTML = md(
+        '**連線被瀏覽器攔截（Failed to fetch）。** 請檢查：\n' +
+        '- 關閉 `github.io` 頁面上的廣告攔截器／防追蹤擴充套件\n' +
+        '- 或點右上角「⚙️」新增一組免費的 **Groq** Key 當作備援'
+      );
+    } else if (e.status === 401 || e.status === 403 || e.status === 400) {
+      bub.innerHTML = md('**籌碼驗證沒過。** API Key 無效或權限不足（' + esc(msg) + '），點右上角「⚙️」檢查設定。');
     } else {
-      bub.innerHTML = md('剛剛牌桌斷線了（' + esc(e.message || '伺服器尖峰負載') + '），再問一次。');
+      bub.innerHTML = md(
+        '目前所有模型都遇到晚間尖峰塞車（' + esc(msg) + '）。\n' +
+        '- **最一勞永逸解法**：點右上角「⚙️」切到 **Groq** 申請免費 Key（`console.groq.com/keys`），幾乎零塞車且回覆極快。'
+      );
     }
   } finally {
     busy = false;
@@ -369,30 +633,26 @@ async function ask(text) {
   }
 }
 
+providerSelect.addEventListener('change', () => {
+  syncModalFields(providerSelect.value);
+});
+
 detectBtn.addEventListener('click', async () => {
-  const key = apiKeyInput.value.trim();
-  if (!key) {
-    detectMsg.textContent = '請先貼上 API Key';
-    return;
-  }
+  const pid = providerSelect.value;
+  const rawKey = apiKeyInput.value;
   detectBtn.disabled = true;
-  detectMsg.textContent = '偵測中…';
+  detectMsg.textContent = '向伺服器查詢可用模型中…';
   try {
-    const models = await fetchAvailableModels(key);
-    if (models.length === 0) {
-      detectMsg.textContent = '查無可用對話模型';
+    const list = await fetchModelsForProvider(pid, rawKey);
+    if (!list.length) {
+      detectMsg.textContent = '查無可用模型';
       return;
     }
-    modelList.innerHTML = '';
-    models.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = m;
-      modelList.appendChild(opt);
-    });
-    apiModelInput.value = models[0];
-    detectMsg.textContent = `已載入 ${models.length} 個可用模型`;
+    apiModelInput.value = list[0];
+    renderModelChips(list);
+    detectMsg.textContent = `✓ 已抓到 ${list.length} 個可用模型（點擊下方標籤切換）`;
   } catch (e) {
-    detectMsg.textContent = '偵測失敗：Key 無效或網路異常';
+    detectMsg.textContent = '偵測失敗：' + (e.message || '請確認網路或 Key');
   } finally {
     detectBtn.disabled = false;
   }
@@ -402,7 +662,7 @@ f.addEventListener('submit', e => {
   e.preventDefault();
   const v = t.value;
   if (!v.trim()) return;
-  if (!localStorage.getItem(KEY_STORAGE)) {
+  if (Object.keys(getKeys()).length === 0) {
     openModal();
     return;
   }
@@ -420,9 +680,11 @@ t.addEventListener('keydown', e => {
 cfgBtn.addEventListener('click', openModal);
 document.getElementById('cancel-cfg').addEventListener('click', closeModal);
 document.getElementById('save-cfg').addEventListener('click', () => {
-  localStorage.setItem(KEY_STORAGE, apiKeyInput.value.trim());
-  localStorage.setItem(MODEL_STORAGE, apiModelInput.value.trim() || DEFAULT_MODEL);
-  updateKeyBadge();
+  const pid = providerSelect.value;
+  setKey(pid, apiKeyInput.value);
+  setModel(pid, apiModelInput.value);
+  localStorage.setItem(STORE_PROVIDER, pid);
+  updateHeaderStatus();
   closeModal();
 });
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
@@ -436,7 +698,7 @@ STARTER_CHIPS.forEach(c => {
   chipBox.appendChild(b);
 });
 
-updateKeyBadge();
+updateHeaderStatus();
 initWelcome();
 </script>
 </body>
